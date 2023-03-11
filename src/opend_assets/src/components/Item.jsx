@@ -3,20 +3,26 @@ import logo from "../../assets/logo.png";
 import { HttpAgent, Actor } from '@dfinity/agent';
 import { idlFactory } from "../../../declarations/nft/index";
 import { Principal } from '@dfinity/principal';
+import Button from "./Button";
+import { opend } from "../../../declarations/opend";
 
 function Item(props) {
 
-  const[name, setName] = useState();
-  const[owner, setOwner] = useState();
-  const[image, setImage] = useState();
+  const [name, setName] = useState();
+  const [owner, setOwner] = useState();
+  const [image, setImage] = useState();
+  const [button, setButton] = useState();
+  const [priceInput, setPriceInput] = useState();
 
   const id = props.id;
 
   const localHost = "http://localhost:8080/";
-  const agent = new HttpAgent({host: localHost});
+  const agent = new HttpAgent({ host: localHost });
+  agent.fetchRootKey();
+  let NFTActor;
 
-  async function loadNFT(){
-    const NFTActor = await Actor.createActor(idlFactory, {
+  async function loadNFT() {
+    NFTActor = await Actor.createActor(idlFactory, {
       agent,
       canisterId: id,
     });
@@ -29,9 +35,41 @@ function Item(props) {
 
     const imgData = await NFTActor.getAsset();
     const imgContent = new Uint8Array(imgData);
-    const image = URL.createObjectURL(new Blob([imgContent.buffer], {type: "image/png"}));
+    const image = URL.createObjectURL(new Blob([imgContent.buffer], { type: "image/png" }));
     setImage(image);
+
+    setButton(<Button handleClick={handleSell} text={"Sell"} />)
   }
+
+  let price;
+  function handleSell() {
+    // console.log("Clicked");
+    setPriceInput(
+      <input
+      placeholder="Price in DANG"
+      type="number"
+      className="price-input"
+      value={price}
+      onChange={(e) => price = e.target.value}
+    />
+    );
+
+    setButton(<Button handleClick={sellItem} text={"Confirm"} />)
+  }
+
+  async function sellItem(){
+    // console.log(price);
+
+    const listingResults = await opend.listItem(props.id, Number(price));
+    console.log(listingResults);
+
+    if(listingResults == "Success"){
+      const openDID = await opend.getOpenDCanisterID();
+      const transferResults = await NFTActor.transferOwnership(openDID);
+      console.log(transferResults);
+    }
+  }
+
 
   useEffect(() => {
     loadNFT();
@@ -51,6 +89,8 @@ function Item(props) {
           <p className="disTypography-root makeStyles-bodyText-24 disTypography-body2 disTypography-colorTextSecondary">
             Owner: {owner}
           </p>
+          {priceInput}
+          {button}
         </div>
       </div>
     </div>
